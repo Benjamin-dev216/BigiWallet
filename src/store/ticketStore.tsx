@@ -1,4 +1,3 @@
-// stores/useTicketStore.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { createClient } from "@supabase/supabase-js";
