@@ -22,6 +22,7 @@ interface TicketMessage {
   message: string;
   is_admin: boolean;
   created_at: string;
+  image_url?: string;
 }
 
 interface TicketCategory {
@@ -45,8 +46,10 @@ interface TicketStore {
   sendMessage: (
     ticketId: string,
     message: string,
-    isAdmin?: boolean
+    isAdmin?: boolean,
+    imageUrl?: string
   ) => Promise<void>;
+  uploadImage: (file: File, path: string) => Promise<string>;
   selectTicket: (ticket: Ticket | null) => void;
   resetTicket: () => void;
   addUnreadCount: (ticket_id: string) => void;
@@ -163,7 +166,21 @@ export const useTicketStore = create<TicketStore>()(
         }
       },
 
-      sendMessage: async (ticketId, message, isAdmin) => {
+      uploadImage: async (file: File, path: string) => {
+        const { data, error } = await supabase.storage
+          .from('ticket-attachments')
+          .upload(path, file);
+
+        if (error) throw error;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('ticket-attachments')
+          .getPublicUrl(data.path);
+
+        return publicUrl;
+      },
+
+      sendMessage: async (ticketId, message, isAdmin = false, imageUrl) => {
         set({ loading: true, error: null });
         try {
           const { data, error } = await supabase
@@ -174,6 +191,7 @@ export const useTicketStore = create<TicketStore>()(
                 message,
                 sender_id: (await supabase.auth.getUser()).data.user?.id,
                 is_admin: isAdmin ?? false,
+                image_url: imageUrl,
               },
             ])
             .select()
@@ -198,6 +216,7 @@ export const useTicketStore = create<TicketStore>()(
           selectedTicket: null,
         });
       },
+
       addUnreadCount: async (ticket_id) => {
         const ticket = get().tickets;
         const newTicket = ticket.map((ticket) => {
@@ -219,6 +238,7 @@ export const useTicketStore = create<TicketStore>()(
           })
           .eq("id", ticket_id);
       },
+
       resetUnreadCount: async (ticket_id) => {
         const ticket = get().tickets;
         const newTicket = ticket.map((ticket) => {
